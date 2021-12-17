@@ -6,19 +6,19 @@ main :: IO ()
 main = do
   file <- readFile "input.txt"
 
-  let (x, y) = foldl move (0, 0) $ map parse (lines file)
+  let (x, y, _) = foldl move (0, 0, 0) $ map parse (lines file)
 
   print (x, y)
   print (x * y)
 
   return ()
 
-move :: (Int, Int) -> Move -> (Int, Int)
-move (x, y) move =
+move :: (Int, Int, Int) -> Move -> (Int, Int, Int)
+move (x, y, aim) move =
   case move of
-    Forward n -> (x + n, y)
-    Down n -> (x, y + n)
-    Up n -> (x, y - n)
+    Forward n -> (x + n, y + (aim * n), aim)
+    Down n -> (x, y, aim + n)
+    Up n -> (x, y, aim - n)
 
 parse :: String -> Move
 parse ('f' : 'o' : 'r' : 'w' : 'a' : 'r' : 'd' : ' ' : nStr) = Forward (read nStr)
