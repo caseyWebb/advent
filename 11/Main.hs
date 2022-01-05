@@ -1,12 +1,15 @@
 module Main where
 
+import Data.List (find, findIndex, scanl)
 import qualified Data.Map as Map
+import Data.Maybe
 
 main :: IO ()
 main = do
   input <- getInput
 
-  print $ solve input 100
+  print $ solvePartOne input 100
+  print $ solvePartTwo input
 
   return ()
 
@@ -28,23 +31,22 @@ parseMatrix str =
     w = length $ head matrix
     h = length matrix
 
-solve :: Map.Map (Int, Int) Int -> Int -> Int
-solve matrix n =
-  snd $
-    foldl
-      ( \(acc, count) _ ->
-          let (next, flashed) = step (incrementAll acc) [] in (next, count + length flashed)
-      )
-      (matrix, 0)
-      [1 .. n]
+solvePartOne :: Map.Map (Int, Int) Int -> Int -> Int
+solvePartOne matrix n = sum $ map snd $ take (n + 1) $ series matrix
+
+solvePartTwo :: Map.Map (Int, Int) Int -> Int
+solvePartTwo matrix = fromJust $ findIndex (\(_, n) -> n == Map.size matrix) $ series matrix
+
+series :: Map.Map (Int, Int) Int -> [(Map.Map (Int, Int) Int, Int)]
+series matrix = scanl (\(acc, _) _ -> step (incrementAll acc) []) (matrix, 0) [1 ..]
+
+step :: Map.Map (Int, Int) Int -> [(Int, Int)] -> (Map.Map (Int, Int) Int, Int)
+step matrix flashed
+  | null flashers = (resetFlashed matrix, length flashed)
+  | otherwise = step (incrementPoints matrix adjacent) (flashed ++ flashers)
   where
-    step :: Map.Map (Int, Int) Int -> [(Int, Int)] -> (Map.Map (Int, Int) Int, [(Int, Int)])
-    step matrix flashed
-      | null flashers = (resetFlashed matrix, flashed)
-      | otherwise = step (incrementPoints matrix adjacent) (flashed ++ flashers)
-      where
-        flashers = filter (`notElem` flashed) $ Map.keys $ Map.filter (> 9) matrix
-        adjacent = concatMap (getAdjacent matrix) flashers
+    flashers = filter (`notElem` flashed) $ Map.keys $ Map.filter (> 9) matrix
+    adjacent = concatMap (getAdjacent matrix) flashers
 
 incrementAll :: Map.Map (Int, Int) Int -> Map.Map (Int, Int) Int
 incrementAll = Map.map (+ 1)
@@ -56,10 +58,10 @@ getAdjacent :: Map.Map (Int, Int) Int -> (Int, Int) -> [(Int, Int)]
 getAdjacent matrix (x, y) =
   [ (x', y')
     | x' <- [x - 1 .. x + 1],
-      x' <= width matrix,
+      x' <= maximum (map fst $ Map.keys matrix),
       x' >= 0,
       y' <- [y - 1 .. y + 1],
-      y' <= height matrix,
+      y' <= maximum (map snd $ Map.keys matrix),
       y' >= 0,
       (x', y') /= (x, y)
   ]
@@ -67,9 +69,3 @@ getAdjacent matrix (x, y) =
 resetFlashed :: Map.Map (Int, Int) Int -> Map.Map (Int, Int) Int
 resetFlashed matrix =
   foldl (\acc point -> Map.insert point 0 acc) matrix $ Map.keys $ Map.filter (> 9) matrix
-
-height :: Map.Map (Int, Int) Int -> Int
-height matrix = maximum $ map snd $ Map.keys matrix
-
-width :: Map.Map (Int, Int) Int -> Int
-width matrix = maximum $ map fst $ Map.keys matrix
