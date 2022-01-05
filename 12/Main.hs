@@ -3,7 +3,7 @@ module Main where
 import Data.Char
 import Data.List (find, findIndex, nub, scanl, sort)
 import qualified Data.Map as Map
-import Data.Maybe
+import Data.Maybe (catMaybes, fromJust)
 
 type Graph = Map.Map String [String]
 
@@ -22,20 +22,13 @@ main = do
 
 getAllPaths :: Graph -> [[String]]
 getAllPaths graph =
-  map (map fromJust) $
-    filter (\path -> Nothing `notElem` path) $
-      traverse [] "start"
+  catMaybes $ traverse [] "start"
   where
-    traverse :: [String] -> String -> [[Maybe String]]
-    traverse visited "end" = [[Just "end"]]
+    traverse :: [String] -> String -> [Maybe [String]]
+    traverse visited "end" = [Just ("end" : visited)]
     traverse prevVisited start
-      | null next = [[Nothing]]
-      | otherwise =
-        map
-          ( \tail ->
-              Just start : tail
-          )
-          $ concatMap (traverse visited) next
+      | null next = [Nothing]
+      | otherwise = concatMap (traverse visited) next
       where
         visited = start : prevVisited
         visitedSmallCaves = filter (all isLower) visited
