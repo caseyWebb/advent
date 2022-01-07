@@ -8,7 +8,7 @@ import Data.Maybe (fromJust)
 
 type Pair = (Char, Char)
 
-type RuleMap = Map.Map Pair Char
+type RuleMap = Map.Map Pair [Pair]
 
 type PairCount = Map.Map Pair Int
 
@@ -35,7 +35,7 @@ main = do
   return ()
 
 parseRule :: String -> RuleMap
-parseRule (l : r : _ : _ : _ : _ : c : _) = Map.singleton (l, r) c
+parseRule (l : r : _ : _ : _ : _ : c : _) = Map.singleton (l, r) [(l, c), (c, r)]
 parseRule _ = error "Invalid Input"
 
 parseInput :: String -> (String, RuleMap)
@@ -50,8 +50,4 @@ sumPairCount = foldl (Map.unionWith (+)) Map.empty
 step :: RuleMap -> PairCount -> PairCount
 step rules pairs =
   sumPairCount $
-    concatMap
-      ( \((l, r), n) ->
-          map (`Map.singleton` n) $ let c = rules ! (l, r) in [(l, c), (c, r)]
-      )
-      $ Map.toList pairs
+    concatMap (\(pair, n) -> map (`Map.singleton` n) $ rules ! pair) $ Map.toList pairs
