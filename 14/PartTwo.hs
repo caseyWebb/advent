@@ -1,5 +1,3 @@
-{-# LANGUAGE TupleSections #-}
-
 module Main where
 
 import Data.Function (on)
@@ -12,32 +10,26 @@ type Pair = (Char, Char)
 
 type RuleMap = Map.Map Pair Char
 
-type PairCount = Map.Map Pair Integer
-
-type LetterCount = Map.Map Char Integer
+type PairCount = Map.Map Pair Int
 
 main :: IO ()
 main = do
   contents <- readFile "input.txt"
   let (template, rules) = parseInput contents
-  let initLetterMap = foldl (Map.unionWith (+)) Map.empty $ map (`Map.singleton` 1) template
-  let initPairMap = Map.fromList $ zipWith (curry (,1)) template $ tail template
+  let initPairMap = sumPairCount $ zipWith (\a b -> Map.singleton (a, b) 1) template $ tail template
   let lastLetter = Map.singleton (last template) 1
-  let (pairs, letters) = iterate (nextGen rules) (initPairMap, initLetterMap) !! 10
+  let pairs = iterate (step rules) initPairMap !! 40
 
-  -- print template
-  -- print rules
+  let freq =
+        map snd $
+          Map.toList $
+            foldl (Map.unionWith (+)) lastLetter $
+              map (\((a, _), b) -> Map.singleton a b) $
+                Map.toList pairs
 
-  let freqs = map snd $ Map.toList letters
-  let max = maximum freqs
-  let min = minimum freqs
+  let max = maximum freq
+  let min = minimum freq
 
-  -- print letters
-
-  print freqs
-
-  print max
-  print min
   print $ max - min
 
   return ()
@@ -52,15 +44,14 @@ parseInput string = (template, rules)
     (template : empty : ruleStrings) = lines string
     rules = foldl Map.union Map.empty $ map parseRule ruleStrings
 
-nextGen :: RuleMap -> (PairCount, LetterCount) -> (PairCount, LetterCount)
-nextGen rules (pairs, letters) = (newPairs, newLetters)
-  where
-    additionalLetters = map (\(p, c) -> Map.singleton (rules ! p) c) $ Map.toList pairs
-    newLetters = foldl (Map.unionWith (+)) letters additionalLetters
-    newPairs =
-      foldl (Map.unionWith (+)) Map.empty $
-        concatMap
-          ( \((l, r), n) ->
-              map (`Map.singleton` n) $ let c = rules ! (l, r) in [(l, c), (c, r)]
-          )
-          $ Map.toList pairs
+sumPairCount :: [PairCount] -> PairCount
+sumPairCount = foldl (Map.unionWith (+)) Map.empty
+
+step :: RuleMap -> PairCount -> PairCount
+step rules pairs =
+  sumPairCount $
+    concatMap
+      ( \((l, r), n) ->
+          map (`Map.singleton` n) $ let c = rules ! (l, r) in [(l, c), (c, r)]
+      )
+      $ Map.toList pairs
