@@ -1,35 +1,76 @@
 module Day1 exposing (main)
 
 import Browser
-import Html exposing (Html, pre, text)
+import Html exposing (Html, button, pre, text)
+import Html.Attributes as Attrs
+import Html.Events exposing (onClick, onInput)
 import Maybe.Extra as Maybe
+import Process
 import Task
 
 
+type Mode
+    = Fast
+    | Slow Float
+    | Manual
+
+
+proceed : Mode -> Cmd Msg
+proceed mode =
+    case mode of
+        Manual ->
+            Cmd.none
+
+        Fast ->
+            Task.succeed () |> Task.perform (always ReadNextChar)
+
+        Slow delay ->
+            Process.sleep delay |> Task.perform (always ReadNextChar)
+
+
 type alias Model =
-    { input : List Char
+    { mode : Mode
+    , input : List Char
     , sum : Maybe Int
     , state : State
     }
 
 
+type alias State =
+    { recent : Recent
+    , firstNum : Maybe Int
+    , lastNum : Maybe Int
+    }
+
+
+type Recent
+    = Recent Char Char Char Char
+
+
+push : Recent -> Char -> Recent
+push (Recent _ a b c) =
+    Recent a b c
+
+
 type Msg
-    = ReadNextChar
+    = SetMode Mode
+    | SetSpeed String
+    | ReadNextChar
     | GotNextChar Char
-
-
-readNextChar : Cmd Msg
-readNextChar =
-    Task.perform (always ReadNextChar) (Task.succeed ())
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { input = String.toList input
+    let
+        mode =
+            Manual
+    in
+    ( { mode = mode
+      , input = String.toList input
       , sum = Just 0
       , state = initialState
       }
-    , readNextChar
+    , proceed mode
     )
 
 
@@ -44,6 +85,17 @@ initialState =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        SetMode mode ->
+            ( { model | mode = mode }, proceed mode )
+
+        SetSpeed str ->
+            case String.toFloat str of
+                Just speed ->
+                    ( { model | mode = Slow (500 - speed) }, Cmd.none )
+
+                Nothing ->
+                    ( model, Cmd.none )
+
         ReadNextChar ->
             case model.input of
                 char :: rest ->
@@ -59,20 +111,60 @@ update msg model =
                         | state = initialState
                         , sum = Maybe.map2 (+) model.sum (final model.state)
                       }
-                    , readNextChar
+                    , proceed model.mode
                     )
 
                 _ ->
-                    ( { model | state = step model.state char }, readNextChar )
+                    ( { model | state = step model.state char }, proceed model.mode )
 
 
 view : Model -> Html Msg
 view model =
     pre []
-        [ text (Maybe.map String.fromInt model.sum |> Maybe.withDefault "ERROR")
-        , text "\n\n"
-        , text (String.fromList model.input)
-        ]
+        ([ text "\n"
+         , text <| "firstNum: " ++ (model.state.firstNum |> Maybe.map String.fromInt |> Maybe.withDefault "Not found")
+         , text "\n"
+         , text <| "lastNum: " ++ (model.state.lastNum |> Maybe.map String.fromInt |> Maybe.withDefault "Not found")
+         , text "\n"
+         , text <| "recent: " ++ (model.state.recent |> (\(Recent a b c d) -> String.fromList [ a, b, c, d ]))
+         , text "\n"
+         , text <| "sum: " ++ (Maybe.map String.fromInt model.sum |> Maybe.withDefault "ERROR")
+         , text "\n\n"
+         ]
+            ++ (case model.mode of
+                    Manual ->
+                        [ button [ onClick ReadNextChar ] [ text "Next" ]
+                        , button [ onClick (SetMode (Slow 500)) ] [ text "Autoplay" ]
+                        ]
+
+                    Slow delay ->
+                        [ Html.input
+                            [ Attrs.type_ "range"
+                            , Attrs.value (String.fromFloat (500 - delay))
+                            , Attrs.min "0"
+                            , Attrs.max "500"
+                            , Attrs.step "20"
+                            , onInput SetSpeed
+                            ]
+                            []
+                        , text "\n"
+                        , button [ onClick (SetMode Manual) ] [ text "Pause" ]
+                        ]
+
+                    Fast ->
+                        []
+               )
+            ++ (if not <| List.isEmpty model.input then
+                    [ button [ onClick (SetMode Fast) ] [ text "Solve" ]
+                    ]
+
+                else
+                    []
+               )
+            ++ [ text "\n\n"
+               , text (String.fromList model.input)
+               ]
+        )
 
 
 main : Program () Model Msg
@@ -83,22 +175,6 @@ main =
         , update = update
         , subscriptions = \_ -> Sub.none
         }
-
-
-type alias State =
-    { recent : Recent
-    , firstNum : Maybe Int
-    , lastNum : Maybe Int
-    }
-
-
-type Recent
-    = Recent Char Char Char Char
-
-
-push : Recent -> Char -> Recent
-push (Recent _ a b c) d =
-    Recent a b c d
 
 
 step : State -> Char -> State
