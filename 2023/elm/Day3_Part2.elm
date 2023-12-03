@@ -1,6 +1,7 @@
-module Day3 exposing (..)
+module Day3_Part2 exposing (..)
 
 import Array exposing (Array)
+import GenericDict as Dict exposing (Dict)
 import Maybe.Extra as Maybe
 
 
@@ -10,12 +11,17 @@ type alias Matrix =
 
 type Element
     = Number Int
-    | Symbol
+    | Gear
     | Empty
 
 
 type alias Coord =
     ( Int, Int )
+
+
+coordToString : Coord -> String
+coordToString ( x, y ) =
+    String.fromInt x ++ ":" ++ String.fromInt y
 
 
 points : Matrix -> List Coord
@@ -30,10 +36,9 @@ get matrix ( x, y ) =
     Array.get y matrix |> Maybe.andThen (Array.get x)
 
 
-neighbors : Matrix -> Coord -> List Element
+neighbors : Matrix -> Coord -> List ( Coord, Element )
 neighbors matrix ( x, y ) =
-    List.filterMap
-        (get matrix)
+    List.filterMap (\coord -> get matrix coord |> Maybe.map (Tuple.pair coord))
         [ ( x - 1, y - 1 )
         , ( x, y - 1 )
         , ( x + 1, y - 1 )
@@ -45,9 +50,16 @@ neighbors matrix ( x, y ) =
         ]
 
 
-hasSymbolNeighbor : Matrix -> Coord -> Bool
-hasSymbolNeighbor matrix =
-    neighbors matrix >> List.any ((==) Symbol)
+gearNeighbors : Matrix -> Coord -> List Coord
+gearNeighbors matrix =
+    neighbors matrix
+        >> List.filter (Tuple.second >> (==) Gear)
+        >> List.map Tuple.first
+
+
+hasGearNeighbor : Matrix -> Coord -> Bool
+hasGearNeighbor matrix =
+    not << List.isEmpty << gearNeighbors matrix
 
 
 parseInput : String -> Matrix
@@ -56,11 +68,11 @@ parseInput =
         parseElement char =
             Maybe.map Number (String.fromChar char |> String.toInt)
                 |> Maybe.withDefault
-                    (if char == '.' then
-                        Empty
+                    (if char == '*' then
+                        Gear
 
                      else
-                        Symbol
+                        Empty
                     )
     in
     String.lines
@@ -69,55 +81,74 @@ parseInput =
 
 
 type alias State =
-    ( Maybe ( Int, Bool ), List Int )
+    ( Maybe ( Int, List Coord ), Dict Coord ( Int, Int ) )
 
 
 initialState : State
 initialState =
-    ( Nothing, [] )
+    ( Nothing, Dict.empty )
+
+
+commit : State -> List Coord -> Int -> Dict Coord ( Int, Int )
+commit ( _, foundNumbers ) adjacentGears n =
+    Dict.merge
+        (\k a -> Dict.insert coordToString k a)
+        (\k ( a, _ ) b -> Dict.insert coordToString k ( a, b ))
+        (\k b -> Dict.insert coordToString k ( b, 0 ))
+        foundNumbers
+        (List.map (\gear -> ( gear, n )) adjacentGears |> Dict.fromList coordToString)
+        Dict.empty
 
 
 step : Matrix -> Coord -> State -> State
-step matrix coord ( currentNumber, foundNumbers ) =
+step matrix coord (( currentNumber, foundNumbers ) as state) =
     case ( coord, currentNumber ) of
-        ( ( 0, _ ), Just ( n, True ) ) ->
-            step matrix coord ( Nothing, n :: foundNumbers )
+        ( ( 0, _ ), Just ( n, adjacentGears ) ) ->
+            step matrix
+                coord
+                ( Nothing
+                , commit state adjacentGears n
+                )
 
         _ ->
             case ( get matrix coord, currentNumber ) of
-                ( Just (Number n), Just ( b, confirmed ) ) ->
-                    ( Just ( b * 10 + n, confirmed || hasSymbolNeighbor matrix coord ), foundNumbers )
+                ( Just (Number n), Just ( b, adjacentGears ) ) ->
+                    ( Just ( b * 10 + n, List.append adjacentGears (gearNeighbors matrix coord) )
+                    , foundNumbers
+                    )
 
                 ( Just (Number n), Nothing ) ->
-                    ( Just ( n, hasSymbolNeighbor matrix coord ), foundNumbers )
+                    ( Just ( n, gearNeighbors matrix coord )
+                    , foundNumbers
+                    )
 
-                ( Just Symbol, Just ( n, _ ) ) ->
-                    ( Nothing, n :: foundNumbers )
+                ( _, Just ( n, adjacentGears ) ) ->
+                    ( Nothing
+                    , commit state adjacentGears n
+                    )
 
-                ( Just Symbol, Nothing ) ->
-                    ( Nothing, foundNumbers )
-
-                ( Just Empty, Just ( n, True ) ) ->
-                    ( Nothing, n :: foundNumbers )
-
-                _ ->
-                    ( Nothing, foundNumbers )
+                ( _, Nothing ) ->
+                    ( Nothing
+                    , foundNumbers
+                    )
 
 
 final : State -> Int
-final ( currentNumber, foundNumbers ) =
+final (( currentNumber, foundNumbers ) as state) =
     (case currentNumber of
-        Just ( n, True ) ->
-            n :: foundNumbers
+        Just ( n, adjacentGears ) ->
+            commit state adjacentGears n
 
         _ ->
             foundNumbers
     )
+        |> Dict.values
+        |> List.map (\( a, b ) -> a * b)
         |> List.foldl (+) 0
 
 
-solvePart1 : Matrix -> Int
-solvePart1 matrix =
+solve : Matrix -> Int
+solve matrix =
     List.foldl (step matrix) initialState (points matrix) |> final
 
 
