@@ -19,6 +19,11 @@ type alias Coord =
     ( Int, Int )
 
 
+type alias State =
+    -- (CurrentNumber : (Value, AdjacentGears), GearRatios)
+    ( Maybe ( Int, List Coord ), Dict Coord Int )
+
+
 coordToString : Coord -> String
 coordToString ( x, y ) =
     String.fromInt x ++ ":" ++ String.fromInt y
@@ -31,14 +36,14 @@ points matrix =
         |> List.concatMap Array.toList
 
 
-get : Matrix -> Coord -> Maybe Element
-get matrix ( x, y ) =
-    Array.get y matrix |> Maybe.andThen (Array.get x)
+get : Coord -> Matrix -> Maybe Element
+get ( x, y ) =
+    Array.get y >> Maybe.andThen (Array.get x)
 
 
 neighbors : Matrix -> Coord -> List ( Coord, Element )
 neighbors matrix ( x, y ) =
-    List.filterMap (\coord -> get matrix coord |> Maybe.map (Tuple.pair coord))
+    List.filterMap (\coord -> get coord matrix |> Maybe.map (Tuple.pair coord))
         [ ( x - 1, y - 1 )
         , ( x, y - 1 )
         , ( x + 1, y - 1 )
@@ -80,70 +85,56 @@ parseInput =
         >> Array.fromList
 
 
-type alias State =
-    ( Maybe ( Int, List Coord ), Dict Coord ( Int, Int ) )
-
-
 initialState : State
 initialState =
     ( Nothing, Dict.empty )
 
 
-commit : State -> List Coord -> Int -> Dict Coord ( Int, Int )
-commit ( _, foundNumbers ) adjacentGears n =
+commit : State -> List Coord -> Int -> Dict Coord Int
+commit ( _, gearRatios ) adjacentGears n =
     Dict.merge
         (\k a -> Dict.insert coordToString k a)
-        (\k ( a, _ ) b -> Dict.insert coordToString k ( a, b ))
-        (\k b -> Dict.insert coordToString k ( b, 0 ))
-        foundNumbers
+        (\k a b -> Dict.insert coordToString k (-a * b))
+        (\k b -> Dict.insert coordToString k -b)
+        gearRatios
         (List.map (\gear -> ( gear, n )) adjacentGears |> Dict.fromList coordToString)
         Dict.empty
 
 
 step : Matrix -> Coord -> State -> State
-step matrix coord (( currentNumber, foundNumbers ) as state) =
+step matrix coord (( currentNumber, gearRatios ) as state) =
     case ( coord, currentNumber ) of
         ( ( 0, _ ), Just ( n, adjacentGears ) ) ->
-            step matrix
-                coord
-                ( Nothing
-                , commit state adjacentGears n
-                )
+            step matrix coord ( Nothing, commit state adjacentGears n )
 
         _ ->
-            case ( get matrix coord, currentNumber ) of
+            case ( get coord matrix, currentNumber ) of
                 ( Just (Number n), Just ( b, adjacentGears ) ) ->
                     ( Just ( b * 10 + n, List.append adjacentGears (gearNeighbors matrix coord) )
-                    , foundNumbers
+                    , gearRatios
                     )
 
                 ( Just (Number n), Nothing ) ->
-                    ( Just ( n, gearNeighbors matrix coord )
-                    , foundNumbers
-                    )
+                    ( Just ( n, gearNeighbors matrix coord ), gearRatios )
 
                 ( _, Just ( n, adjacentGears ) ) ->
-                    ( Nothing
-                    , commit state adjacentGears n
-                    )
+                    ( Nothing, commit state adjacentGears n )
 
                 ( _, Nothing ) ->
-                    ( Nothing
-                    , foundNumbers
-                    )
+                    ( Nothing, gearRatios )
 
 
 final : State -> Int
-final (( currentNumber, foundNumbers ) as state) =
+final (( currentNumber, gearRatios ) as state) =
     (case currentNumber of
         Just ( n, adjacentGears ) ->
             commit state adjacentGears n
 
         _ ->
-            foundNumbers
+            gearRatios
     )
         |> Dict.values
-        |> List.map (\( a, b ) -> a * b)
+        |> List.filter ((<) 0)
         |> List.foldl (+) 0
 
 

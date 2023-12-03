@@ -18,11 +18,16 @@ type alias Coord =
     ( Int, Int )
 
 
+type alias State =
+    -- (CurrentNumber : (Number, Confirmed), Sum)
+    ( Maybe ( Int, Bool ), Int )
+
+
 points : Matrix -> List Coord
-points matrix =
-    Array.indexedMap (\y -> Array.indexedMap (\x _ -> ( x, y ))) matrix
-        |> Array.toList
-        |> List.concatMap Array.toList
+points =
+    Array.indexedMap (\y -> Array.indexedMap (\x _ -> ( x, y )))
+        >> Array.toList
+        >> List.concatMap Array.toList
 
 
 get : Matrix -> Coord -> Maybe Element
@@ -68,57 +73,46 @@ parseInput =
         >> Array.fromList
 
 
-type alias State =
-    ( Maybe ( Int, Bool ), List Int )
-
-
-initialState : State
-initialState =
-    ( Nothing, [] )
-
-
 step : Matrix -> Coord -> State -> State
-step matrix coord ( currentNumber, foundNumbers ) =
+step matrix coord ( currentNumber, sum ) =
     case ( coord, currentNumber ) of
         ( ( 0, _ ), Just ( n, True ) ) ->
-            step matrix coord ( Nothing, n :: foundNumbers )
+            step matrix coord ( Nothing, n + sum )
 
         _ ->
             case ( get matrix coord, currentNumber ) of
                 ( Just (Number n), Just ( b, confirmed ) ) ->
-                    ( Just ( b * 10 + n, confirmed || hasSymbolNeighbor matrix coord ), foundNumbers )
+                    ( Just ( b * 10 + n, confirmed || hasSymbolNeighbor matrix coord ), sum )
 
                 ( Just (Number n), Nothing ) ->
-                    ( Just ( n, hasSymbolNeighbor matrix coord ), foundNumbers )
+                    ( Just ( n, hasSymbolNeighbor matrix coord ), sum )
 
                 ( Just Symbol, Just ( n, _ ) ) ->
-                    ( Nothing, n :: foundNumbers )
+                    ( Nothing, n + sum )
 
                 ( Just Symbol, Nothing ) ->
-                    ( Nothing, foundNumbers )
+                    ( Nothing, sum )
 
                 ( Just Empty, Just ( n, True ) ) ->
-                    ( Nothing, n :: foundNumbers )
+                    ( Nothing, n + sum )
 
                 _ ->
-                    ( Nothing, foundNumbers )
+                    ( Nothing, sum )
 
 
 final : State -> Int
-final ( currentNumber, foundNumbers ) =
-    (case currentNumber of
+final ( currentNumber, sum ) =
+    case currentNumber of
         Just ( n, True ) ->
-            n :: foundNumbers
+            n + sum
 
         _ ->
-            foundNumbers
-    )
-        |> List.foldl (+) 0
+            sum
 
 
 solve : Matrix -> Int
 solve matrix =
-    List.foldl (step matrix) initialState (points matrix) |> final
+    List.foldl (step matrix) ( Nothing, 0 ) (points matrix) |> final
 
 
 sampleInput1 : String
