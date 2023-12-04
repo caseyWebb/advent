@@ -1,45 +1,15 @@
 module Day4 exposing (..)
 
 import Dict
-import Parser as P exposing ((|.), (|=), Parser)
-import Result.Extra as Result
+import Parser as P exposing ((|.), (|=))
 import Set
 
 
-inputParser : Parser (Result (List P.DeadEnd) Int)
-inputParser =
-    P.loop { cards = Dict.fromList [], total = 0 }
-        (\{ cards, total } ->
-            P.map
-                (Maybe.map
-                    (\( cardId, score ) ->
-                        let
-                            numCurrentCard =
-                                Dict.get cardId cards |> Maybe.map ((+) 1) |> Maybe.withDefault 1
-
-                            updatedCards =
-                                List.range cardId (cardId + score)
-                                    |> List.tail
-                                    |> Maybe.withDefault []
-                                    |> List.foldl
-                                        (\id ->
-                                            Dict.update id
-                                                (\count ->
-                                                    case count of
-                                                        Just existingAmount ->
-                                                            Just (numCurrentCard + existingAmount)
-
-                                                        Nothing ->
-                                                            Just numCurrentCard
-                                                )
-                                        )
-                                        cards
-                        in
-                        P.Loop { cards = updatedCards, total = total + numCurrentCard }
-                    )
-                    >> Maybe.withDefault (P.Done (Ok total))
-                )
-            <|
+solve : String -> Result (List P.DeadEnd) Int
+solve =
+    P.run <|
+        P.loop { cards = Dict.fromList [], total = 0 }
+            (\{ cards, total } ->
                 P.oneOf
                     [ P.succeed (\cardId score -> Just ( cardId, score ))
                         |. P.symbol "Card"
@@ -47,8 +17,8 @@ inputParser =
                         |= P.int
                         |. P.symbol ":"
                         |= (P.loop Set.empty
-                                (\set ->
-                                    P.succeed (Maybe.map (\n -> P.Loop (Set.insert n set)) >> Maybe.withDefault (P.Done set))
+                                (\winningNumbers ->
+                                    P.succeed (Maybe.map (\n -> P.Loop (Set.insert n winningNumbers)) >> Maybe.withDefault (P.Done winningNumbers))
                                         |. P.spaces
                                         |= P.oneOf
                                             [ P.int |> P.map Just
@@ -62,11 +32,12 @@ inputParser =
                                                 P.succeed
                                                     (Maybe.map
                                                         (\n ->
-                                                            if Set.member n winningNumbers then
-                                                                P.Loop (score + 1)
+                                                            P.Loop <|
+                                                                if Set.member n winningNumbers then
+                                                                    score + 1
 
-                                                            else
-                                                                P.Loop score
+                                                                else
+                                                                    score
                                                         )
                                                         >> Maybe.withDefault (P.Done score)
                                                     )
@@ -80,12 +51,37 @@ inputParser =
                            )
                     , P.end |> P.map (always Nothing)
                     ]
-        )
+                    |> P.map
+                        (Maybe.map
+                            (\( cardId, score ) ->
+                                let
+                                    numCurrentCard =
+                                        1 + (Dict.get cardId cards |> Maybe.withDefault 0)
 
+                                    updatedCards =
+                                        List.range cardId (cardId + score)
+                                            |> List.tail
+                                            |> Maybe.withDefault []
+                                            |> List.foldl
+                                                (\id ->
+                                                    Dict.update id
+                                                        (\count ->
+                                                            case count of
+                                                                Just existingAmount ->
+                                                                    Just (numCurrentCard + existingAmount)
 
-solve : String -> Result (List P.DeadEnd) Int
-solve =
-    P.run inputParser >> Result.join
+                                                                Nothing ->
+                                                                    Just numCurrentCard
+                                                        )
+                                                )
+                                                cards
+                                            |> Dict.remove cardId
+                                in
+                                P.Loop { cards = updatedCards, total = total + numCurrentCard }
+                            )
+                            >> Maybe.withDefault (P.Done total)
+                        )
+            )
 
 
 sampleInput : String
