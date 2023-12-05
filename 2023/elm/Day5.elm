@@ -15,7 +15,6 @@ inRange value ( start, end ) =
 
 
 type alias Mapping =
-    -- ( Range, Range )
     ( Int, Int, Int )
 
 
@@ -137,6 +136,26 @@ applyMappings mappings =
                 mappings
                 |> unwrap
         )
+        >> collapseRanges
+
+
+collapseRanges : List Range -> List Range
+collapseRanges =
+    List.sortBy Tuple.first
+        >> List.foldl
+            (\(( start, end ) as range) acc ->
+                case acc of
+                    [] ->
+                        [ range ]
+
+                    ( prevStart, prevEnd ) :: rest ->
+                        if prevEnd + 1 >= start then
+                            ( prevStart, end ) :: rest
+
+                        else
+                            range :: acc
+            )
+            []
 
 
 mapRange : Mapping -> Range -> List (Mapped Range)
