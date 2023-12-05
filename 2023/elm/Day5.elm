@@ -1,25 +1,43 @@
 module Day5 exposing (..)
 
+import Html exposing (b)
+import List.Extra as List
 import Parser as P exposing ((|.), (|=), Parser)
 
 
+type alias Range =
+    ( Int, Int )
+
+
+inRange : Int -> Range -> Bool
+inRange value ( start, end ) =
+    value >= start && value <= end
+
+
 type alias Mapping =
+    -- ( Range, Range )
     ( Int, Int, Int )
 
 
+solve : String -> Result (List P.DeadEnd) (Maybe Int)
 solve =
     P.run inputParser
-        >> Result.map (\( seeds, mappings ) -> List.foldl map seeds mappings |> List.minimum)
+        >> Result.map
+            (\( seeds, mappings ) ->
+                List.foldl applyMappings seeds mappings
+                    |> List.map Tuple.first
+                    |> List.minimum
+            )
 
 
-inputParser : Parser ( List Int, List (List Mapping) )
+inputParser : Parser ( List Range, List (List Mapping) )
 inputParser =
     P.succeed Tuple.pair
         |= seedsParser
         |= mappingsParser
 
 
-seedsParser : Parser (List Int)
+seedsParser : Parser (List Range)
 seedsParser =
     P.succeed identity
         |. P.spaces
@@ -27,12 +45,13 @@ seedsParser =
         |= P.loop []
             (\seeds ->
                 P.succeed
-                    (Maybe.map (\seed -> P.Loop (seed :: seeds))
-                        >> Maybe.withDefault (P.Done (List.reverse seeds))
-                    )
+                    (Maybe.map (\seed -> P.Loop (seed :: seeds)) >> Maybe.withDefault (P.Done (List.reverse seeds)))
                     |. P.spaces
                     |= P.oneOf
-                        [ P.int |> P.map Just
+                        [ P.succeed (\start width -> Just ( start, start + width - 1 ))
+                            |= P.int
+                            |. P.spaces
+                            |= P.int
                         , P.succeed Nothing
                         ]
             )
@@ -70,25 +89,115 @@ mappingParser =
             )
 
 
-map : List Mapping -> List Int -> List Int
-map mappings values =
-    List.foldl
-        (\( dest, source, width ) ->
-            List.foldl
-                (\( alreadyMapped, value ) ->
-                    (::)
-                        (if not alreadyMapped && value >= source && value < source + width then
-                            ( True, dest + (value - source) )
+type Mapped a
+    = Mapped a
+    | Unmapped a
 
-                         else
-                            ( alreadyMapped, value )
-                        )
-                )
-                []
+
+partition : List (Mapped a) -> ( List a, List a )
+partition =
+    List.foldl
+        (\mapped ( mappedAcc, unmappedAcc ) ->
+            case mapped of
+                Mapped a ->
+                    ( a :: mappedAcc, unmappedAcc )
+
+                Unmapped a ->
+                    ( mappedAcc, a :: unmappedAcc )
         )
-        (List.map (Tuple.pair False) values)
-        mappings
-        |> List.map Tuple.second
+        ( [], [] )
+
+
+unwrap : List (Mapped a) -> List a
+unwrap =
+    List.map
+        (\mapped ->
+            case mapped of
+                Mapped a ->
+                    a
+
+                Unmapped a ->
+                    a
+        )
+
+
+applyMappings : List Mapping -> List Range -> List Range
+applyMappings mappings =
+    List.concatMap
+        (\range ->
+            List.foldl
+                (\mapping acc ->
+                    let
+                        ( mapped, unmapped ) =
+                            partition acc
+                    in
+                    List.concatMap (mapRange mapping) unmapped ++ (mapped |> List.map Mapped)
+                )
+                [ Unmapped range ]
+                mappings
+                |> unwrap
+        )
+
+
+mapRange : Mapping -> Range -> List (Mapped Range)
+mapRange ( destStart, sourceStart, mappingWidth ) ( start, end ) =
+    let
+        sourceEnd =
+            sourceStart + mappingWidth - 1
+
+        destEnd =
+            destStart + mappingWidth - 1
+
+        sourceRange =
+            ( sourceStart, sourceEnd )
+
+        destRange =
+            ( destStart, destEnd )
+
+        leftOuterBound =
+            sourceStart - 1
+
+        rightOuterBound =
+            sourceEnd + 1
+
+        offset =
+            start - sourceStart
+
+        width =
+            end - start
+    in
+    if inRange start sourceRange || inRange end sourceRange then
+        case ( start < sourceStart, end > sourceEnd ) of
+            ( True, True ) ->
+                -- |-----------------|  <- value
+                --     |---------|      <- mapping
+                [ Unmapped ( start, sourceStart - 1 )
+                , Mapped destRange
+                , Unmapped ( rightOuterBound, end )
+                ]
+
+            ( True, False ) ->
+                -- |-----------|   <- value
+                --     |---------| <- mapping
+                [ Unmapped ( start, leftOuterBound )
+                , Mapped ( destStart, destStart + width - (leftOuterBound - start) )
+                ]
+
+            ( False, True ) ->
+                --     |-----------| <- value
+                -- |---------|       <- mapping
+                [ Mapped ( destStart + offset, destEnd )
+                , Unmapped ( rightOuterBound, end )
+                ]
+
+            ( False, False ) ->
+                --     |---------|      <- value
+                -- |-----------------|  <- mapping
+                [ Mapped ( destStart + offset, destStart + offset + width )
+                ]
+
+    else
+        [ Unmapped ( start, end ) ]
 
 
 sampleInput : String
