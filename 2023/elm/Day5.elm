@@ -173,6 +173,12 @@ mapRange ( destStart, sourceStart, mappingWidth ) ( start, end ) =
         destRange =
             ( destStart, destEnd )
 
+        leftInnerBound =
+            destStart
+
+        rightInnerBound =
+            destEnd
+
         leftOuterBound =
             sourceStart - 1
 
@@ -190,7 +196,7 @@ mapRange ( destStart, sourceStart, mappingWidth ) ( start, end ) =
             ( True, True ) ->
                 -- |-----------------|  <- value
                 --     |---------|      <- mapping
-                [ Unmapped ( start, sourceStart - 1 )
+                [ Unmapped ( start, leftOuterBound )
                 , Mapped destRange
                 , Unmapped ( rightOuterBound, end )
                 ]
@@ -199,20 +205,20 @@ mapRange ( destStart, sourceStart, mappingWidth ) ( start, end ) =
                 -- |-----------|   <- value
                 --     |---------| <- mapping
                 [ Unmapped ( start, leftOuterBound )
-                , Mapped ( destStart, destStart + width - (leftOuterBound - start) )
+                , Mapped ( leftInnerBound, leftInnerBound + width - (leftOuterBound - start) )
                 ]
 
             ( False, True ) ->
                 --     |-----------| <- value
                 -- |---------|       <- mapping
-                [ Mapped ( destStart + offset, destEnd )
+                [ Mapped ( destStart + offset, rightInnerBound )
                 , Unmapped ( rightOuterBound, end )
                 ]
 
             ( False, False ) ->
                 --     |---------|      <- value
                 -- |-----------------|  <- mapping
-                [ Mapped ( destStart + offset, destStart + offset + width )
+                [ Mapped ( leftInnerBound + offset, leftInnerBound + offset + width )
                 ]
 
     else
