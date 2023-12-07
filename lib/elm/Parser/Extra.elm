@@ -22,3 +22,15 @@ list parser =
                         )
                     )
         )
+
+
+repeat : Int -> Parser a -> Parser (List a)
+repeat n parser =
+    loop []
+        (\acc ->
+            if List.length acc < n then
+                parser |> map (\item -> Loop (item :: acc))
+
+            else
+                succeed (Done (List.reverse acc))
+        )

@@ -7,10 +7,6 @@ import Parser as P exposing ((|.), (|=), Parser)
 import Parser.Extra as P
 
 
-type Cards
-    = Cards Int Int Int Int Int
-
-
 type Hand
     = FiveOfAKind
     | FourOfAKind
@@ -21,7 +17,7 @@ type Hand
     | HighCard
 
 
-solve : List ( Cards, Int ) -> Int
+solve : List ( List Int, Int ) -> Int
 solve =
     List.map (\( cards, wager ) -> ( ( cards, toHand cards ), wager ))
         >> List.sortWith (\( player1, _ ) ( player2, _ ) -> comparePlayers player1 player2)
@@ -29,11 +25,11 @@ solve =
         >> List.sum
 
 
-toHand : Cards -> Hand
-toHand (Cards a b c d e) =
+toHand : List Int -> Hand
+toHand cards =
     let
         counts =
-            Dict.frequencies [ a, b, c, d, e ]
+            Dict.frequencies cards
 
         orderedCountsWithoutJokers =
             Dict.remove 0 counts
@@ -102,8 +98,8 @@ toHand (Cards a b c d e) =
             HighCard
 
 
-comparePlayers : ( Cards, Hand ) -> ( Cards, Hand ) -> Order
-comparePlayers ( Cards a1 b1 c1 d1 e1, hand1 ) ( Cards a2 b2 c2 d2 e2, hand2 ) =
+comparePlayers : ( List Int, Hand ) -> ( List Int, Hand ) -> Order
+comparePlayers ( cards1, hand1 ) ( cards2, hand2 ) =
     let
         toComparable hand =
             case hand of
@@ -130,7 +126,7 @@ comparePlayers ( Cards a1 b1 c1 d1 e1, hand1 ) ( Cards a2 b2 c2 d2 e2, hand2 ) =
     in
     case compare (toComparable hand1) (toComparable hand2) of
         EQ ->
-            [ ( a1, a2 ), ( b1, b2 ), ( c1, c2 ), ( d1, d2 ), ( e1, e2 ) ]
+            List.zip cards1 cards2
                 |> List.findMap
                     (\( card1, card2 ) ->
                         case compare card1 card2 of
@@ -146,39 +142,33 @@ comparePlayers ( Cards a1 b1 c1 d1 e1, hand1 ) ( Cards a2 b2 c2 d2 e2, hand2 ) =
             order
 
 
-inputParser : Parser (List ( Cards, Int ))
+inputParser : Parser (List ( List Int, Int ))
 inputParser =
-    let
-        cardParser =
-            P.oneOf
-                [ P.const "A" 14
-                , P.const "K" 13
-                , P.const "Q" 12
-                , P.const "T" 10
-                , P.const "9" 9
-                , P.const "8" 8
-                , P.const "7" 7
-                , P.const "6" 6
-                , P.const "5" 5
-                , P.const "4" 4
-                , P.const "3" 3
-                , P.const "2" 2
-                , P.const "J" 0
-                ]
-    in
     P.list
-        (P.succeed (\a b c d e wager -> ( Cards a b c d e, wager ))
-            |= cardParser
-            |= cardParser
-            |= cardParser
-            |= cardParser
-            |= cardParser
+        (P.succeed (\cards wager -> ( cards, wager ))
+            |= P.repeat 5
+                (P.oneOf
+                    [ P.const "A" 14
+                    , P.const "K" 13
+                    , P.const "Q" 12
+                    , P.const "T" 10
+                    , P.const "9" 9
+                    , P.const "8" 8
+                    , P.const "7" 7
+                    , P.const "6" 6
+                    , P.const "5" 5
+                    , P.const "4" 4
+                    , P.const "3" 3
+                    , P.const "2" 2
+                    , P.const "J" 0
+                    ]
+                )
             |. P.spaces
             |= P.int
         )
 
 
-sampleInput : List ( Cards, Int )
+sampleInput : List ( List Int, Int )
 sampleInput =
     (P.run inputParser >> Result.withDefault []) """
 32T3K 765
@@ -189,7 +179,7 @@ QQQJA 483
 """
 
 
-input : List ( Cards, Int )
+input : List ( List Int, Int )
 input =
     (P.run inputParser >> Result.withDefault []) """
 8T64Q 595
