@@ -28,26 +28,68 @@ hand (Cards a b c d e) =
                 (\card -> Dict.update card (Maybe.withDefault 0 >> (+) 1 >> Just))
                 Dict.empty
                 [ a, b, c, d, e ]
+
+        orderedCountsWithoutJokers =
+            Dict.remove 0 counts
                 |> Dict.values
                 |> List.sort
+
+        jokers =
+            Dict.get 0 counts |> Maybe.withDefault 0
     in
-    case counts of
-        [ 5 ] ->
+    case ( orderedCountsWithoutJokers, jokers ) of
+        ( [ 5 ], 0 ) ->
             FiveOfAKind
 
-        [ 1, 4 ] ->
+        ( [ 4 ], 1 ) ->
+            FiveOfAKind
+
+        ( [ 3 ], 2 ) ->
+            FiveOfAKind
+
+        ( [ 2 ], 3 ) ->
+            FiveOfAKind
+
+        ( [ 1 ], 4 ) ->
+            FiveOfAKind
+
+        ( [], 5 ) ->
+            FiveOfAKind
+
+        ( [ 1, 4 ], 0 ) ->
             FourOfAKind
 
-        [ 2, 3 ] ->
+        ( [ 1, 3 ], 1 ) ->
+            FourOfAKind
+
+        ( [ 1, 2 ], 2 ) ->
+            FourOfAKind
+
+        ( [ 1, 1 ], 3 ) ->
+            FourOfAKind
+
+        ( [ 2, 3 ], 0 ) ->
             FullHouse
 
-        [ 1, 1, 3 ] ->
+        ( [ 2, 2 ], 1 ) ->
+            FullHouse
+
+        ( [ 1, 1, 3 ], 0 ) ->
             ThreeOfAKind
 
-        [ 1, 2, 2 ] ->
+        ( [ 1, 1, 2 ], 1 ) ->
+            ThreeOfAKind
+
+        ( [ 1, 1, 1 ], 2 ) ->
+            ThreeOfAKind
+
+        ( [ 1, 2, 2 ], 0 ) ->
             TwoPair
 
-        [ 1, 1, 1, 2 ] ->
+        ( [ 1, 1, 1, 2 ], 0 ) ->
+            OnePair
+
+        ( [ 1, 1, 1, 1 ], 1 ) ->
             OnePair
 
         _ ->
@@ -156,7 +198,8 @@ inputParser =
                 [ P.const "A" 14
                 , P.const "K" 13
                 , P.const "Q" 12
-                , P.const "J" 11
+
+                -- , P.const "J" 11
                 , P.const "T" 10
                 , P.const "9" 9
                 , P.const "8" 8
@@ -166,6 +209,7 @@ inputParser =
                 , P.const "4" 4
                 , P.const "3" 3
                 , P.const "2" 2
+                , P.const "J" 0
                 ]
     in
     P.list
