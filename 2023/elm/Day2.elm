@@ -1,6 +1,6 @@
 module Day2 exposing (..)
 
-import GenericDict as Dict exposing (Dict)
+import Generic.Dict as Dict exposing (Dict)
 import Parser as P exposing ((|.), (|=), Parser)
 import Parser.Extra as P
 
@@ -54,7 +54,7 @@ roundsParser : List Round -> Parser (P.Step (List Round) (List Round))
 roundsParser rounds =
     P.oneOf
         [ P.succeed (\round -> P.Loop (round :: rounds))
-            |= P.loop Dict.empty roundParser
+            |= P.loop (Dict.empty colorToString) roundParser
         , P.succeed () |> P.map (always (P.Done (List.reverse rounds)))
         ]
 
@@ -62,7 +62,7 @@ roundsParser rounds =
 roundParser : Round -> Parser (P.Step Round Round)
 roundParser round =
     P.succeed
-        (\count color loopOrDone -> Dict.insert colorToString color count round |> loopOrDone)
+        (\count color loopOrDone -> Dict.insert color count round |> loopOrDone)
         |. P.spaces
         |= P.int
         |. P.spaces
@@ -92,7 +92,7 @@ solvePart1 =
                 (\round ->
                     List.all
                         (\( color, amount ) ->
-                            (Dict.get colorToString color round |> Maybe.withDefault 0) <= amount
+                            (Dict.get color round |> Maybe.withDefault 0) <= amount
                         )
                         amounts
                 )
@@ -110,16 +110,16 @@ solvePart2 =
         minDiceRequired ( _, rounds ) =
             let
                 update color round =
-                    Dict.update colorToString
+                    Dict.update
                         color
                         (Maybe.withDefault 0
-                            >> max (Dict.get colorToString color round |> Maybe.withDefault 0)
+                            >> max (Dict.get color round |> Maybe.withDefault 0)
                             >> Just
                         )
             in
             List.foldl
                 (\round -> update Red round >> update Green round >> update Blue round)
-                Dict.empty
+                (Dict.empty colorToString)
                 rounds
 
         power : Dict Color Int -> Int

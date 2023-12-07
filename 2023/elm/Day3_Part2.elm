@@ -1,7 +1,7 @@
 module Day3_Part2 exposing (..)
 
 import Array exposing (Array)
-import GenericDict as Dict exposing (Dict)
+import Generic.Dict as Dict exposing (Dict)
 import Maybe.Extra as Maybe
 
 
@@ -87,18 +87,18 @@ parseInput =
 
 initialState : State
 initialState =
-    ( Nothing, Dict.empty )
+    ( Nothing, Dict.empty coordToString )
 
 
 commit : State -> List Coord -> Int -> Dict Coord Int
 commit ( _, gearRatios ) adjacentGears n =
     Dict.merge
-        (\k a -> Dict.insert coordToString k a)
-        (\k a b -> Dict.insert coordToString k (-a * b))
-        (\k b -> Dict.insert coordToString k -b)
+        (\k a -> Dict.insert k a)
+        (\k a b -> Dict.insert k (-a * b))
+        (\k b -> Dict.insert k -b)
         gearRatios
         (List.map (\gear -> ( gear, n )) adjacentGears |> Dict.fromList coordToString)
-        Dict.empty
+        (Dict.empty coordToString)
 
 
 step : Matrix -> Coord -> State -> State
