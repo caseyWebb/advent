@@ -1,6 +1,7 @@
 module Day4 exposing (..)
 
 import Dict
+import Dict.Extra as Dict
 import Parser as P exposing ((|.), (|=))
 import Set
 
@@ -62,19 +63,7 @@ solve =
                                         List.range cardId (cardId + score)
                                             |> List.tail
                                             |> Maybe.withDefault []
-                                            |> List.foldl
-                                                (\id ->
-                                                    Dict.update id
-                                                        (\count ->
-                                                            case count of
-                                                                Just existingAmount ->
-                                                                    Just (numCurrentCard + existingAmount)
-
-                                                                Nothing ->
-                                                                    Just numCurrentCard
-                                                        )
-                                                )
-                                                cards
+                                            |> List.foldl (\id -> Dict.insertDedupe (+) id numCurrentCard) cards
                                             |> Dict.remove cardId
                                 in
                                 P.Loop { cards = updatedCards, total = total + numCurrentCard }

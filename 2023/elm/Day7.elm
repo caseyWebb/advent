@@ -1,6 +1,7 @@
 module Day7 exposing (..)
 
 import Dict
+import Dict.Extra as Dict
 import List.Extra as List
 import Parser as P exposing ((|.), (|=), Parser)
 import Parser.Extra as P
@@ -20,14 +21,19 @@ type Hand
     | HighCard
 
 
-hand : Cards -> Hand
-hand (Cards a b c d e) =
+solve : List ( Cards, Int ) -> Int
+solve =
+    List.map (\( cards, wager ) -> ( ( cards, toHand cards ), wager ))
+        >> List.sortWith (\( player1, _ ) ( player2, _ ) -> comparePlayers player1 player2)
+        >> List.indexedMap (\index ( _, wager ) -> (index + 1) * wager)
+        >> List.sum
+
+
+toHand : Cards -> Hand
+toHand (Cards a b c d e) =
     let
         counts =
-            List.foldl
-                (\card -> Dict.update card (Maybe.withDefault 0 >> (+) 1 >> Just))
-                Dict.empty
-                [ a, b, c, d, e ]
+            Dict.frequencies [ a, b, c, d, e ]
 
         orderedCountsWithoutJokers =
             Dict.remove 0 counts
@@ -96,98 +102,48 @@ hand (Cards a b c d e) =
             HighCard
 
 
-solve : List ( Cards, Int ) -> Int
-solve =
-    List.map (\( cards, wager ) -> ( cards, hand cards, wager ))
-        >> List.sortWith
-            (\( cardsA, handA, _ ) ( cardsB, handB, _ ) ->
-                if handA == handB then
-                    compareCards cardsA cardsB
+comparePlayers : ( Cards, Hand ) -> ( Cards, Hand ) -> Order
+comparePlayers ( Cards a1 b1 c1 d1 e1, hand1 ) ( Cards a2 b2 c2 d2 e2, hand2 ) =
+    let
+        toComparable hand =
+            case hand of
+                FiveOfAKind ->
+                    7
 
-                else
-                    compareHands handA handB
-            )
-        >> List.indexedMap
-            (\index ( _, _, wager ) ->
-                (index + 1) * wager
-            )
-        >> List.sum
+                FourOfAKind ->
+                    6
 
+                FullHouse ->
+                    5
 
-compareCards : Cards -> Cards -> Order
-compareCards (Cards a1 b1 c1 d1 e1) (Cards a2 b2 c2 d2 e2) =
-    [ ( a1, a2 ), ( b1, b2 ), ( c1, c2 ), ( d1, d2 ), ( e1, e2 ) ]
-        |> List.findMap
-            (\( cardA, cardB ) ->
-                case compare cardA cardB of
-                    EQ ->
-                        Nothing
+                ThreeOfAKind ->
+                    4
 
-                    order ->
-                        Just order
-            )
-        |> Maybe.withDefault EQ
+                TwoPair ->
+                    3
 
+                OnePair ->
+                    2
 
-compareHands : Hand -> Hand -> Order
-compareHands handA handB =
-    case ( handA, handB ) of
-        ( FiveOfAKind, FiveOfAKind ) ->
-            EQ
+                HighCard ->
+                    1
+    in
+    case compare (toComparable hand1) (toComparable hand2) of
+        EQ ->
+            [ ( a1, a2 ), ( b1, b2 ), ( c1, c2 ), ( d1, d2 ), ( e1, e2 ) ]
+                |> List.findMap
+                    (\( card1, card2 ) ->
+                        case compare card1 card2 of
+                            EQ ->
+                                Nothing
 
-        ( FiveOfAKind, _ ) ->
-            GT
+                            order ->
+                                Just order
+                    )
+                |> Maybe.withDefault EQ
 
-        ( _, FiveOfAKind ) ->
-            LT
-
-        ( FourOfAKind, FourOfAKind ) ->
-            EQ
-
-        ( FourOfAKind, _ ) ->
-            GT
-
-        ( _, FourOfAKind ) ->
-            LT
-
-        ( FullHouse, FullHouse ) ->
-            EQ
-
-        ( FullHouse, _ ) ->
-            GT
-
-        ( _, FullHouse ) ->
-            LT
-
-        ( ThreeOfAKind, ThreeOfAKind ) ->
-            EQ
-
-        ( ThreeOfAKind, _ ) ->
-            GT
-
-        ( _, ThreeOfAKind ) ->
-            LT
-
-        ( TwoPair, TwoPair ) ->
-            EQ
-
-        ( TwoPair, _ ) ->
-            GT
-
-        ( _, TwoPair ) ->
-            LT
-
-        ( OnePair, OnePair ) ->
-            EQ
-
-        ( OnePair, _ ) ->
-            GT
-
-        ( _, OnePair ) ->
-            LT
-
-        ( HighCard, HighCard ) ->
-            EQ
+        order ->
+            order
 
 
 inputParser : Parser (List ( Cards, Int ))
@@ -198,8 +154,6 @@ inputParser =
                 [ P.const "A" 14
                 , P.const "K" 13
                 , P.const "Q" 12
-
-                -- , P.const "J" 11
                 , P.const "T" 10
                 , P.const "9" 9
                 , P.const "8" 8
