@@ -135,7 +135,7 @@ final (( currentNumber, gearRatios ) as state) =
     )
         |> Dict.values
         |> List.filter ((<) 0)
-        |> List.foldl (+) 0
+        |> List.sum
 
 
 solve : Matrix -> Int

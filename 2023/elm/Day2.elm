@@ -100,7 +100,8 @@ solvePart1 =
     in
     parseInput
         >> List.filter isValidGame
-        >> List.foldl (Tuple.first >> (+)) 0
+        >> List.map Tuple.first
+        >> List.sum
 
 
 solvePart2 : String -> Int
@@ -124,9 +125,9 @@ solvePart2 =
 
         power : Dict Color Int -> Int
         power =
-            Dict.toList >> List.map Tuple.second >> List.foldl (*) 1
+            Dict.toList >> List.map Tuple.second >> List.product
     in
-    parseInput >> List.map (minDiceRequired >> power) >> List.foldl (+) 0
+    parseInput >> List.map (minDiceRequired >> power) >> List.sum
 
 
 input : String
