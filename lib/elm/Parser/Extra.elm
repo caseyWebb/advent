@@ -1,11 +1,30 @@
 module Parser.Extra exposing (..)
 
 import Parser exposing (..)
+import Set
 
 
 const : String -> a -> Parser a
 const str ctor =
     symbol str |> map (always ctor)
+
+
+alphaNum : Parser String
+alphaNum =
+    variable
+        { start = \c -> Char.isAlphaNum c
+        , inner = \c -> Char.isAlphaNum c
+        , reserved = Set.empty
+        }
+
+
+word : Parser String
+word =
+    variable
+        { start = \c -> Char.isAlpha c
+        , inner = \c -> Char.isAlpha c
+        , reserved = Set.empty
+        }
 
 
 list : Parser a -> Parser (List a)
