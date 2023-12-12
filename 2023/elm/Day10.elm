@@ -32,12 +32,30 @@ solve matrix =
 
 findLoop : Matrix (Maybe Pipe) -> Maybe (Set ( Int, Int ))
 findLoop matrix =
-    findStart matrix |> Maybe.andThen (step matrix Set.empty)
+    findStart matrix |> Maybe.andThen (\start -> step matrix (Set.singleton start) start)
 
 
 findStart : Matrix (Maybe Pipe) -> Maybe ( Int, Int )
 findStart =
     Matrix.find (\cell -> cell == Just Start)
+
+
+isCompatiblePipe : RelativeLocation -> Pipe -> Bool
+isCompatiblePipe direction pipe =
+    List.member pipe
+        (case direction of
+            Above ->
+                [ Vertical, TopRight, TopLeft ]
+
+            Below ->
+                [ Vertical, BottomRight, BottomLeft ]
+
+            Left ->
+                [ Horizontal, TopLeft, BottomLeft ]
+
+            Right ->
+                [ Horizontal, TopRight, BottomRight ]
+        )
 
 
 step : Matrix (Maybe Pipe) -> Set ( Int, Int ) -> ( Int, Int ) -> Maybe (Set ( Int, Int ))
@@ -69,21 +87,23 @@ step matrix loop (( row, col ) as cell) =
                 Right ->
                     right
 
-        isCompatible direction pipe =
-            List.member pipe
-                (case direction of
-                    Above ->
-                        [ Vertical, TopRight, TopLeft ]
+        canVisit direction =
+            let
+                cell_ =
+                    directionToCell direction
+            in
+            case Matrix.get cell_ matrix of
+                Nothing ->
+                    False
 
-                    Below ->
-                        [ Vertical, BottomRight, BottomLeft ]
+                Just Nothing ->
+                    False
 
-                    Left ->
-                        [ Horizontal, TopLeft, BottomLeft ]
+                Just (Just Start) ->
+                    Set.size loop > 2
 
-                    Right ->
-                        [ Horizontal, TopRight, BottomRight ]
-                )
+                Just (Just pipe) ->
+                    isCompatiblePipe direction pipe && not (Set.member cell_ loop)
     in
     case Matrix.get cell matrix of
         Nothing ->
@@ -102,8 +122,8 @@ step matrix loop (( row, col ) as cell) =
                         in
                         case Matrix.get next matrix of
                             Just (Just pipe) ->
-                                if isCompatible direction pipe then
-                                    Just (\_ -> step matrix (Set.insert cell loop) (Debug.log "stepping to" next))
+                                if isCompatiblePipe direction pipe then
+                                    Just (\_ -> step matrix (Set.insert next loop) (Debug.log "stepping to" next))
 
                                 else
                                     Nothing
@@ -121,42 +141,42 @@ step matrix loop (( row, col ) as cell) =
                             Debug.todo "Can't touch this dun nun nun nun"
 
                         Vertical ->
-                            if Set.member above loop then
+                            if canVisit Below then
                                 Below
 
                             else
                                 Above
 
                         Horizontal ->
-                            if Set.member left loop then
+                            if canVisit Right then
                                 Right
 
                             else
                                 Left
 
                         TopRight ->
-                            if Set.member below loop then
+                            if canVisit Left then
                                 Left
 
                             else
                                 Below
 
                         BottomRight ->
-                            if Set.member above loop then
+                            if canVisit Left then
                                 Left
 
                             else
                                 Above
 
                         BottomLeft ->
-                            if Set.member above loop then
+                            if canVisit Right then
                                 Right
 
                             else
                                 Above
 
                         TopLeft ->
-                            if Set.member below loop then
+                            if canVisit Right then
                                 Right
 
                             else
@@ -173,11 +193,11 @@ step matrix loop (( row, col ) as cell) =
                     Nothing
 
                 Just (Just Start) ->
-                    Just (Set.insert cell loop)
+                    Just loop
 
                 Just (Just nextPipe) ->
-                    if isCompatible direction nextPipe then
-                        step matrix (Set.insert cell loop) (Debug.log "stepping to" next)
+                    if isCompatiblePipe direction nextPipe then
+                        step matrix (Set.insert next loop) (Debug.log "stepping to" next)
 
                     else
                         Nothing
