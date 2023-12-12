@@ -1,7 +1,6 @@
 module Day10 exposing (..)
 
 import Array
-import Day3_Part1 exposing (step)
 import Matrix exposing (Matrix)
 import Maybe.Extra as Maybe
 import Parser as P exposing ((|.), (|=), Parser)
@@ -19,17 +18,21 @@ type Pipe
     | Start
 
 
-solve : Matrix (Maybe Pipe) -> Int
-solve matrix =
-    let
-        start =
-            findStart matrix
-                |> Maybe.withDefault ( 0, 0 )
+type RelativeLocation
+    = Above
+    | Below
+    | Left
+    | Right
 
-        loop =
-            findLoop matrix start
-    in
-    Set.size loop // 2
+
+solve : Matrix (Maybe Pipe) -> Maybe Int
+solve matrix =
+    findLoop matrix |> Maybe.map (\loop -> Set.size loop // 2)
+
+
+findLoop : Matrix (Maybe Pipe) -> Maybe (Set ( Int, Int ))
+findLoop matrix =
+    findStart matrix |> Maybe.andThen (step matrix Set.empty)
 
 
 findStart : Matrix (Maybe Pipe) -> Maybe ( Int, Int )
@@ -37,97 +40,147 @@ findStart =
     Matrix.find (\cell -> cell == Just Start)
 
 
-findLoop : Matrix (Maybe Pipe) -> ( Int, Int ) -> Set ( Int, Int )
-findLoop matrix start =
+step : Matrix (Maybe Pipe) -> Set ( Int, Int ) -> ( Int, Int ) -> Maybe (Set ( Int, Int ))
+step matrix loop (( row, col ) as cell) =
     let
-        step : Set ( Int, Int ) -> ( Int, Int ) -> Maybe (Set ( Int, Int ))
-        step loop cell =
-            Matrix.get cell matrix
-                |> Maybe.andThen
-                    (Maybe.andThen
-                        (\pipe ->
-                            (case pipe of
-                                Start ->
-                                    Maybe.oneOf
-                                        [ tryStepUp
-                                        , tryStepDown
-                                        , tryStepLeft
-                                        , tryStepRight
-                                        ]
+        above =
+            ( row - 1, col )
 
-                                Vertical ->
-                                    Maybe.oneOf
-                                        [ tryStepUp
-                                        , tryStepDown
-                                        ]
+        below =
+            ( row + 1, col )
 
-                                Horizontal ->
-                                    Maybe.oneOf
-                                        [ tryStepLeft
-                                        , tryStepRight
-                                        ]
+        left =
+            ( row, col - 1 )
 
-                                TopRight ->
-                                    Maybe.oneOf
-                                        [ tryStepLeft
-                                        , tryStepDown
-                                        ]
+        right =
+            ( row, col + 1 )
 
-                                BottomRight ->
-                                    Maybe.oneOf
-                                        [ tryStepLeft
-                                        , tryStepUp
-                                        ]
+        directionToCell direction =
+            case direction of
+                Above ->
+                    above
 
-                                BottomLeft ->
-                                    Maybe.oneOf
-                                        [ tryStepRight
-                                        , tryStepUp
-                                        ]
+                Below ->
+                    below
 
-                                TopLeft ->
-                                    Maybe.oneOf
-                                        [ tryStepRight
-                                        , tryStepDown
-                                        ]
-                            )
-                                ( Set.insert cell loop, cell )
-                        )
-                    )
+                Left ->
+                    left
 
-        tryStepUp ( loop, ( row, col ) ) =
-            tryStepInDirection loop ( row - 1, col ) [ Vertical, TopRight, TopLeft ]
+                Right ->
+                    right
 
-        tryStepDown ( loop, ( row, col ) ) =
-            tryStepInDirection loop ( row + 1, col ) [ Vertical, BottomRight, BottomLeft ]
+        isCompatible direction pipe =
+            List.member pipe
+                (case direction of
+                    Above ->
+                        [ Vertical, TopRight, TopLeft ]
 
-        tryStepLeft ( loop, ( row, col ) ) =
-            tryStepInDirection loop ( row, col - 1 ) [ Horizontal, TopLeft, BottomLeft ]
+                    Below ->
+                        [ Vertical, BottomRight, BottomLeft ]
 
-        tryStepRight ( loop, ( row, col ) ) =
-            tryStepInDirection loop ( row, col + 1 ) [ Horizontal, TopRight, BottomRight ]
+                    Left ->
+                        [ Horizontal, TopLeft, BottomLeft ]
 
-        tryStepInDirection loop next compatible =
-            if Set.size loop >= 4 && next == start then
-                Just loop
+                    Right ->
+                        [ Horizontal, TopRight, BottomRight ]
+                )
+    in
+    case Matrix.get cell matrix of
+        Nothing ->
+            Nothing
 
-            else if Set.member next loop then
-                Nothing
+        Just Nothing ->
+            Nothing
 
-            else
-                Matrix.get next matrix
-                    |> Maybe.andThen
-                        (Maybe.andThen
-                            (\cell ->
-                                if List.member cell compatible then
-                                    step loop (Debug.log "stepping to" next)
+        Just (Just Start) ->
+            [ Above, Below, Left, Right ]
+                |> List.filterMap
+                    (\direction ->
+                        let
+                            next =
+                                directionToCell direction
+                        in
+                        case Matrix.get next matrix of
+                            Just (Just pipe) ->
+                                if isCompatible direction pipe then
+                                    Just (\_ -> step matrix (Set.insert cell loop) (Debug.log "stepping to" next))
 
                                 else
                                     Nothing
-                            )
-                        )
-    in
-    step Set.empty start |> Maybe.withDefault Set.empty
+
+                            _ ->
+                                Nothing
+                    )
+                |> Maybe.orListLazy
+
+        Just (Just pipe) ->
+            let
+                direction =
+                    case pipe of
+                        Start ->
+                            Debug.todo "Can't touch this dun nun nun nun"
+
+                        Vertical ->
+                            if Set.member above loop then
+                                Below
+
+                            else
+                                Above
+
+                        Horizontal ->
+                            if Set.member left loop then
+                                Right
+
+                            else
+                                Left
+
+                        TopRight ->
+                            if Set.member below loop then
+                                Left
+
+                            else
+                                Below
+
+                        BottomRight ->
+                            if Set.member above loop then
+                                Left
+
+                            else
+                                Above
+
+                        BottomLeft ->
+                            if Set.member above loop then
+                                Right
+
+                            else
+                                Above
+
+                        TopLeft ->
+                            if Set.member below loop then
+                                Right
+
+                            else
+                                Below
+
+                next =
+                    directionToCell direction
+            in
+            case Matrix.get next matrix of
+                Nothing ->
+                    Nothing
+
+                Just Nothing ->
+                    Nothing
+
+                Just (Just Start) ->
+                    Just (Set.insert cell loop)
+
+                Just (Just nextPipe) ->
+                    if isCompatible direction nextPipe then
+                        step matrix (Set.insert cell loop) (Debug.log "stepping to" next)
+
+                    else
+                        Nothing
 
 
 lineParser : Parser (List (Maybe Pipe))
