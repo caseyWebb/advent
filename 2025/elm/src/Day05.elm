@@ -8,33 +8,29 @@ type alias Range =
     ( Int, Int )
 
 
-parser : Parser ( List Range, List Int )
+parser : Parser (List Range)
 parser =
-    Parser.succeed Tuple.pair
-        |= Parser.loop []
-            (\acc ->
-                Parser.oneOf
-                    [ Parser.succeed (\start end -> Parser.Loop (( start, end ) :: acc))
-                        |= Parser.int
-                        |. Parser.symbol "-"
-                        |= Parser.int
-                        |. Parser.symbol "\n"
-                    , Parser.succeed (Parser.Done (List.reverse acc))
-                    ]
-            )
+    Parser.loop []
+        (\acc ->
+            Parser.oneOf
+                [ Parser.succeed (\start end -> Parser.Loop (( start, end ) :: acc))
+                    |= Parser.int
+                    |. Parser.symbol "-"
+                    |= Parser.int
+                    |. Parser.symbol "\n"
+                , Parser.succeed (Parser.Done (List.reverse acc))
+                ]
+        )
         |. Parser.symbol "\n"
-        |= Parser.Extra.lines Parser.int
+        |. Parser.Extra.lines Parser.int
 
 
 solve : String -> Int
 solve input =
-    let
-        ( freshRanges, _ ) =
-            Parser.run parser input
-                |> Result.withDefault ( [], [] )
-                |> Tuple.mapFirst combineRanges
-    in
-    List.foldl (\( lower, upper ) acc -> acc + (upper - lower) + 1) 0 freshRanges
+    Parser.run parser input
+        |> Result.withDefault []
+        |> combineRanges
+        |> List.foldl (\( lower, upper ) acc -> acc + (upper - lower) + 1) 0
 
 
 combineRanges : List Range -> List Range
