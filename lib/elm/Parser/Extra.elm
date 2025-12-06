@@ -1,4 +1,4 @@
-module Parser.Extra exposing (const, csv, lines)
+module Parser.Extra exposing (const, csv, lines, spaceSeparatedList)
 
 import Parser exposing (..)
 
@@ -31,6 +31,11 @@ Use in conjunction with `lines` to parse a full CSV file.
 csv : Parser a -> Parser (List a)
 csv =
     loopWithDelimiter (oneOf [ symbol ",", end ])
+
+
+spaceSeparatedList : Parser a -> Parser (List a)
+spaceSeparatedList =
+    loopWithDelimiter spaces
 
 
 loopWithDelimiter : Parser ignore -> Parser a -> Parser (List a)
