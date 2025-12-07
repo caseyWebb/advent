@@ -263,6 +263,7 @@ viewCell =
                                 [ Html.Attributes.style "color" "#f00"
                                 , Html.Attributes.style "text-shadow" "0 0 5px #f00, 0 0 10px #f00, 0 0 15px #f00"
                                 , Html.Attributes.title (String.fromInt intensity)
+                                , Html.Attributes.style "opacity" (String.fromFloat ((0.1 * (logBase 10 (toFloat intensity) + 1)) |> clamp 0.1 1.0))
                                 ]
 
                             _ ->
