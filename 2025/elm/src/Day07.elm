@@ -3,6 +3,7 @@ module Day07 exposing (..)
 import Browser
 import Browser.Events
 import Day07.Input
+import Dict
 import Html exposing (Html)
 import Html.Attributes
 import Html.Events
@@ -21,7 +22,7 @@ type alias Grid =
 type Cell
     = Empty
     | Start
-    | Beam
+    | Beam Int
     | Splitter Bool
 
 
@@ -29,6 +30,16 @@ isSplitter : Cell -> Bool
 isSplitter cell =
     case cell of
         Splitter _ ->
+            True
+
+        _ ->
+            False
+
+
+isBeam : Cell -> Bool
+isBeam cell =
+    case cell of
+        Beam _ ->
             True
 
         _ ->
@@ -44,7 +55,7 @@ parse =
                     (Parser.oneOf
                         [ Parser.Extra.const "." Empty
                         , Parser.Extra.const "S" Start
-                        , Parser.Extra.const "|" Beam
+                        , Parser.Extra.const "|" (Beam 0)
                         , Parser.Extra.const "^" (Splitter False)
                         ]
                     )
@@ -61,10 +72,24 @@ step =
     Zipper.stepWith
         (\current next ->
             let
-                beamPositions =
+                beams =
                     current
                         |> List.indexedMap Tuple.pair
-                        |> List.filter (\( _, cell ) -> cell == Start || cell == Beam)
+                        |> List.filterMap
+                            (\( i, cell ) ->
+                                case cell of
+                                    Start ->
+                                        Just ( i, 1 )
+
+                                    Beam intensity ->
+                                        Just ( i, intensity )
+
+                                    _ ->
+                                        Nothing
+                            )
+
+                beamPositions =
+                    beams
                         |> List.map Tuple.first
                         |> Set.fromList
 
@@ -77,20 +102,37 @@ step =
 
                 newBeamPositions =
                     Set.foldl
-                        (\beamI -> Set.remove beamI >> Set.insert (beamI + 1) >> Set.insert (beamI - 1))
-                        beamPositions
+                        (\splitterI acc ->
+                            let
+                                beamIntensity =
+                                    Dict.get splitterI acc |> Maybe.withDefault 0
+
+                                leftBeamIntensity =
+                                    Dict.get (splitterI - 1) acc |> Maybe.withDefault 0
+
+                                rightBeamIntensity =
+                                    Dict.get (splitterI + 1) acc |> Maybe.withDefault 0
+                            in
+                            acc
+                                |> Dict.remove splitterI
+                                |> Dict.insert (splitterI - 1) (beamIntensity + leftBeamIntensity)
+                                |> Dict.insert (splitterI + 1) (beamIntensity + rightBeamIntensity)
+                        )
+                        (Dict.fromList beams)
                         splitterPositions
             in
             List.indexedMap
                 (\i cell ->
-                    if Set.member i newBeamPositions then
-                        Beam
+                    case Dict.get i newBeamPositions of
+                        Just intensity ->
+                            Beam intensity
 
-                    else if isSplitter cell && Set.member i beamPositions then
-                        Splitter True
+                        Nothing ->
+                            if isSplitter cell && Set.member i beamPositions then
+                                Splitter True
 
-                    else
-                        cell
+                            else
+                                cell
                 )
                 next
         )
@@ -172,6 +214,7 @@ view model =
         , Html.Attributes.style "align-items" "center"
         , Html.Attributes.style "color" "#ccc"
         , Html.Attributes.style "font-family" "monospace"
+        , Html.Attributes.style "min-height" "100vh"
         ]
         [ Html.div []
             [ Html.button (Html.Events.onClick Reset :: buttonStyles) [ Html.text "[Reset]" ]
@@ -216,9 +259,10 @@ viewCell =
                                 [ Html.Attributes.style "color" "#666"
                                 ]
 
-                            Beam ->
+                            Beam intensity ->
                                 [ Html.Attributes.style "color" "#f00"
                                 , Html.Attributes.style "text-shadow" "0 0 5px #f00, 0 0 10px #f00, 0 0 15px #f00"
+                                , Html.Attributes.title (String.fromInt intensity)
                                 ]
 
                             _ ->
@@ -236,7 +280,17 @@ splitCount =
 
 beamCount : Grid -> Int
 beamCount =
-    Zipper.current >> List.filter ((==) Beam) >> List.length
+    Zipper.current
+        >> List.filterMap
+            (\cell ->
+                case cell of
+                    Beam intensity ->
+                        Just intensity
+
+                    _ ->
+                        Nothing
+            )
+        >> List.sum
 
 
 gridToString : Grid -> String
@@ -253,7 +307,7 @@ cellToString cell =
         Start ->
             "S"
 
-        Beam ->
+        Beam _ ->
             "|"
 
         Splitter used ->
