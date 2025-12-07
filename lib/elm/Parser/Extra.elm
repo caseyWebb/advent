@@ -1,4 +1,4 @@
-module Parser.Extra exposing (const, csv, lines, spaceSeparatedList)
+module Parser.Extra exposing (chars, const, csv, lines, ssv)
 
 import Parser exposing (..)
 
@@ -33,9 +33,21 @@ csv =
     loopWithDelimiter (oneOf [ symbol ",", end ])
 
 
-spaceSeparatedList : Parser a -> Parser (List a)
-spaceSeparatedList =
+{-| Parse a SINGLE line of Space Separated Values (SSV)
+
+Use in conjunction with `lines` to parse a full SSV file.
+
+-}
+ssv : Parser a -> Parser (List a)
+ssv =
     loopWithDelimiter spaces
+
+
+{-| Parse each character in a string
+-}
+chars : Parser a -> Parser (List a)
+chars =
+    loopWithDelimiter (Parser.symbol "")
 
 
 loopWithDelimiter : Parser ignore -> Parser a -> Parser (List a)

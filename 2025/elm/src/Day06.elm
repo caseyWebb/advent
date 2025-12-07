@@ -14,7 +14,7 @@ type Operation
 parseOps : String -> List Operation
 parseOps =
     Parser.run
-        (Parser.Extra.spaceSeparatedList
+        (Parser.Extra.ssv
             (Parser.oneOf
                 [ Parser.Extra.const "+" Add
                 , Parser.Extra.const "*" Multiply
