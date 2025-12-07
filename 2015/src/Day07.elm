@@ -3,7 +3,6 @@ module Day07 exposing (..)
 import Bitwise
 import Dict exposing (Dict)
 import Html exposing (i)
-import List.Extra
 import Maybe.Extra
 import Parser exposing ((|.), (|=))
 import Parser.Extra
@@ -94,6 +93,12 @@ solveFor wire inputs =
     helper inputLookup wire |> Tuple.second
 
 
+solvePart1 : List ( Gate, Wire ) -> Int
+solvePart1 inputs =
+    helper (List.map Tuple.Extra.swap inputs |> Dict.fromList) "a" |> Tuple.second
+
+
+solvePart2 : List ( Gate, Wire ) -> Int
 solvePart2 inputs =
     let
         lookup =
@@ -115,45 +120,40 @@ helper inputs wire =
             source inputs input
 
         And a b ->
-            let
-                ( updatedInputs, aVal ) =
-                    source inputs a
-
-                ( finallyUpdatedInputs, bVal ) =
-                    source updatedInputs b
-            in
-            ( finallyUpdatedInputs, Bitwise.and aVal bVal )
+            source2Then inputs a b Bitwise.and
 
         Or a b ->
-            let
-                ( updatedInputs, aVal ) =
-                    source inputs a
-
-                ( finallyUpdatedInputs, bVal ) =
-                    source updatedInputs b
-            in
-            ( finallyUpdatedInputs, Bitwise.or aVal bVal )
+            source2Then inputs a b Bitwise.or
 
         Not a ->
-            let
-                ( updatedInputs, aVal ) =
-                    source inputs a
-            in
-            ( updatedInputs, Bitwise.xor (2 ^ 16 - 1) aVal )
+            sourceThen inputs a (Bitwise.xor (2 ^ 16 - 1))
 
         LShift a b ->
-            let
-                ( updatedInputs, aVal ) =
-                    source inputs a
-            in
-            ( updatedInputs, Bitwise.shiftLeftBy b aVal )
+            sourceThen inputs a (Bitwise.shiftLeftBy b)
 
         RShift a b ->
-            let
-                ( updatedInputs, aVal ) =
-                    source inputs a
-            in
-            ( updatedInputs, Bitwise.shiftRightBy b aVal )
+            sourceThen inputs a (Bitwise.shiftRightBy b)
+
+
+sourceThen : Dict Wire Gate -> Input -> (Int -> a) -> ( Dict Wire Gate, a )
+sourceThen inputs input fn =
+    let
+        ( updatedInputs, val ) =
+            source inputs input
+    in
+    ( updatedInputs, fn val )
+
+
+source2Then : Dict Wire Gate -> Input -> Input -> (Int -> Int -> a) -> ( Dict Wire Gate, a )
+source2Then inputs input1 input2 fn =
+    let
+        ( updatedInputs, val1 ) =
+            source inputs input1
+
+        ( finallyUpdatedInputs, val2 ) =
+            source updatedInputs input2
+    in
+    ( finallyUpdatedInputs, fn val1 val2 )
 
 
 source : Dict Wire Gate -> Input -> ( Dict Wire Gate, Int )

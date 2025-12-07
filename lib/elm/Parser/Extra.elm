@@ -1,6 +1,11 @@
-module Parser.Extra exposing (chars, const, csv, lines, ssv)
+module Parser.Extra exposing (chars, const, csv, lines, ssv, word)
 
 import Parser exposing (..)
+
+
+word : Parser String
+word =
+    getChompedString (chompWhile (\c -> c /= ' ' && c /= '\n'))
 
 
 {-| Parse a constant value, i.e. turn a string into a type constructor
