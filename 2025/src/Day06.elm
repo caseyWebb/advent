@@ -41,19 +41,17 @@ parse input =
         ops :: rows ->
             let
                 sets =
-                    Debug.log "sets"
-                        (List.map (\row -> String.split "" ("|" ++ row ++ "|")) rows
-                            |> List.Extra.transpose
-                            |> List.map
-                                (List.reverse
-                                    >> String.join ""
-                                    >> String.replace "|" ""
-                                    >> String.trim
-                                )
-                            |> List.Extra.split ""
-                            |> List.filter (\row -> row /= [])
-                            |> List.map (List.map String.toInt >> Maybe.Extra.values)
-                        )
+                    List.map (\row -> String.split "" ("|" ++ row ++ "|")) rows
+                        |> List.Extra.transpose
+                        |> List.map
+                            (List.reverse
+                                >> String.join ""
+                                >> String.replace "|" ""
+                                >> String.trim
+                            )
+                        |> List.Extra.split ""
+                        |> List.filter (\row -> row /= [])
+                        |> List.map (List.map String.toInt >> Maybe.Extra.values)
             in
             List.map2 Tuple.pair (parseOps ops) sets
 

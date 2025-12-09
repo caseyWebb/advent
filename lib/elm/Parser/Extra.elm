@@ -1,6 +1,28 @@
-module Parser.Extra exposing (chars, const, csv, lines, ssv, word)
+module Parser.Extra exposing (chars, const, csv, hex, lines, ssv, word)
 
 import Parser exposing (..)
+
+
+hex : Parser Char
+hex =
+    oneOf
+        [ symbol "0" |> map (\_ -> '0')
+        , symbol "1" |> map (\_ -> '1')
+        , symbol "2" |> map (\_ -> '2')
+        , symbol "3" |> map (\_ -> '3')
+        , symbol "4" |> map (\_ -> '4')
+        , symbol "5" |> map (\_ -> '5')
+        , symbol "6" |> map (\_ -> '6')
+        , symbol "7" |> map (\_ -> '7')
+        , symbol "8" |> map (\_ -> '8')
+        , symbol "9" |> map (\_ -> '9')
+        , symbol "A" |> map (\_ -> 'A')
+        , symbol "B" |> map (\_ -> 'B')
+        , symbol "C" |> map (\_ -> 'C')
+        , symbol "D" |> map (\_ -> 'D')
+        , symbol "E" |> map (\_ -> 'E')
+        , symbol "F" |> map (\_ -> 'F')
+        ]
 
 
 word : Parser String
